@@ -1,0 +1,209 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  VisitorCountInfra
+Transform:
+- AWS::Serverless-2016-10-31
+
+# Resources declares the AWS resources that you want to include in the stack
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/resources-section-structure.html
+Resources:
+  VisitorCountDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: VisitorCountTable
+      AttributeDefinitions:
+        - AttributeName: visitors
+          AttributeType: S
+      KeySchema:
+        - AttributeName: visitors
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  VisitorCountApiResource:
+    Type: 'AWS::Serverless::Api'
+    Properties:
+      Name: 'VisitorCountApi'
+      StageName: 'Prod'
+      Auth:
+        DefaultAuthorizer: NONE
+      GatewayResponses:
+        DEFAULT_4XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'*'"
+              Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+        DEFAULT_5XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'*'"
+              Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+      DefinitionBody:
+        swagger: '2.0'
+        info:
+          title: 'Visitor Count API'
+        paths:
+          /getVisitorCount:
+            get:
+              x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${getVisitorCountFunction.Arn}/invocations"
+              responses: {}
+            options:
+              summary: CORS support
+              description: Enable CORS by returning correct headers
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              tags:
+                - CORS
+              x-amazon-apigateway-integration:
+                type: mock
+                requestTemplates:
+                  application/json: "{\n  \"statusCode\" : 200\n}\n"
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Headers: "'*'"
+                      method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                    responseTemplates:
+                      application/json: "{}\n"
+              responses:
+                "200":
+                  description: Default response for CORS method
+                  headers:
+                    Access-Control-Allow-Headers:
+                      type: string
+                    Access-Control-Allow-Methods:
+                      type: string
+                    Access-Control-Allow-Origin:
+                      type: string
+          /putVisitorCount:
+            post:
+              x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${putVisitorCountFunction.Arn}/invocations"
+              responses: {}
+            options:
+              summary: CORS support
+              description: Enable CORS by returning correct headers
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              tags:
+                - CORS
+              x-amazon-apigateway-integration:
+                type: mock
+                requestTemplates:
+                  application/json: "{\n  \"statusCode\" : 200\n}\n"
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Headers: "'*'"
+                      method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                    responseTemplates:
+                      application/json: "{}\n"
+              responses:
+                "200":
+                  description: Default response for CORS method
+                  headers:
+                    Access-Control-Allow-Headers:
+                      type: string
+                    Access-Control-Allow-Methods:
+                      type: string
+                    Access-Control-Allow-Origin:
+                      type: string
+
+  # Each Lambda function is defined by properties:
+  # https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+
+  # This is a Lambda function config associated with the source code: get-all-items.js
+  getVisitorCountFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/getVisitorCount.getVisitorCountHandler
+      FunctionName: ResumeChallengeGetVisitorCountFunction
+      Runtime: python3.9
+      Architectures:
+      - x86_64
+      MemorySize: 128
+      Timeout: 100
+      Description: A simple example includes a HTTP get method to get all items from a DynamoDB table.
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: !Ref VisitorCountDynamoDBTable
+      Environment:
+        Variables:
+          # Make table name accessible as environment variable from function code during execution
+          TABLE_NAME: !Ref VisitorCountDynamoDBTable
+
+      Events:
+        ApiGateway:
+          Type: Api
+          Properties:
+            RestApiId: !Ref VisitorCountApiResource   # Connect this Lambda to the API Gateway
+            Path: /getVisitorCount
+            Method: GET
+
+  putVisitorCountFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/putVisitorCount.putVisitorCountHandler
+      FunctionName: ResumeChallengePutVisitorCountFunction
+      Runtime: python3.9
+      Architectures:
+      - x86_64
+      MemorySize: 128
+      Timeout: 100
+      Description: A simple example includes a HTTP get method to get all items from a DynamoDB table.
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: !Ref VisitorCountDynamoDBTable
+      Environment:
+        Variables:
+          # Make table name accessible as environment variable from function code during execution
+          TABLE_NAME: !Ref VisitorCountDynamoDBTable
+          # GET_API_URL: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/get"
+
+      Events:
+        ApiGateway:
+          Type: Api
+          Properties:
+            RestApiId: !Ref VisitorCountApiResource   # Connect this Lambda to the API Gateway
+            Path: /putVisitorCount
+            Method: POST
+            
+
+  ApplicationResourceGroup:
+    Type: AWS::ResourceGroups::Group
+    Properties:
+      Name:
+        Fn::Sub: ApplicationInsights-SAM-${AWS::StackName}
+      ResourceQuery:
+        Type: CLOUDFORMATION_STACK_1_0
+  ApplicationInsightsMonitoring:
+    Type: AWS::ApplicationInsights::Application
+    Properties:
+      ResourceGroupName:
+        Ref: ApplicationResourceGroup
+      AutoConfigurationEnabled: 'true'
+
+Outputs:
+  WebEndpoint:
+    Description: API Gateway endpoint URL for Prod stage
+    Value: !Sub "https://${VisitorCountApiResource}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    LoggingConfig:
+      LogFormat: JSON
+
