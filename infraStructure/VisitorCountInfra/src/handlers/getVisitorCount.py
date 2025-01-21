@@ -3,7 +3,7 @@ import json
 
 def getVisitorCountHandler(event, context):
     # Initialize the DynamoDB client
-    dynamodb = boto3.resource('dynamodb')
+    dynamodb = boto3.resource('dynamodb', region_name='us-west-1')
 
     # Replace 'YourTableName' with your DynamoDB table name
     table_name = 'VisitorCountTable'

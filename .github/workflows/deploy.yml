@@ -33,8 +33,6 @@ jobs:
       # Step 4: Run Pytest
       - name: Run Tests
         run: pytest  
-        with:
-          aws-region: ${{secrets.AWS_REGION}} 
 
   deploy:
     name: Deploy SAM Template
