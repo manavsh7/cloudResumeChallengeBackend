@@ -1,0 +1,66 @@
+name: Run Tests and Deploy SAM
+
+on:
+  push:
+    branches:
+      - main  # Trigger on commits to the main branch
+  pull_request:
+    branches:
+      - main  # Trigger on pull requests to the main branch
+
+jobs:
+  test:
+    name: Run Pytest
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10.6'  # Adjust the Python version as needed
+
+      # Step 3: Install dependencies
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Step 4: Run Pytest
+      - name: Run Tests
+        run: pytest --cov=. 
+
+  deploy:
+    name: Deploy SAM Template
+    needs: test  # Only run this job if 'test' succeeds
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up AWS credentials
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # Step 3: Install AWS SAM CLI
+      - name: Install AWS SAM CLI
+        run: |
+          sudo pip install aws-sam-cli
+
+      # Step 4: Deploy the SAM application
+      - name: Deploy SAM Application
+        run: |
+          sam build
+          sam deploy --no-confirm-changeset --stack-name ${{ secrets.stackName }} \
+                     --capabilities CAPABILITY_IAM \
+                     --region ${{ secrets.AWS_REGION }}
