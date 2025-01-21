@@ -68,6 +68,7 @@ jobs:
       # Step 4: Deploy the SAM application
       - name: Deploy SAM Application
         run: |
+          cd ./infraStructure/VisitorCountInfra
           sam build
           sam deploy --no-confirm-changeset --stack-name ${{ secrets.stackName }} \
                      --capabilities CAPABILITY_IAM \
