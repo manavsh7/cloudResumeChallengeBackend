@@ -32,7 +32,7 @@ jobs:
 
       # Step 4: Run Pytest
       - name: Run Tests
-        run: pytest --cov=. 
+        run: pytest  
 
   deploy:
     name: Deploy SAM Template
